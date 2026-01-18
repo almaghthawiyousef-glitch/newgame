@@ -34,6 +34,8 @@ class ForestRoom extends Room {
 }
 
 const app = express();
+app.get("/", (req, res) => res.send("OK"));
+
 const server = http.createServer(app);
 
 const gameServer = new Server({
@@ -44,3 +46,4 @@ gameServer.define("forest", ForestRoom);
 // مهم جدًا لـ Render
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log("Server running on", PORT));
+
