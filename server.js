@@ -6,35 +6,60 @@ const { Room } = require("colyseus");
 
 class ForestRoom extends Room {
   onCreate() {
-    this.maxClients = 10;
+    this.maxClients = 20;
 
-    this.setState({
-      seed: Math.floor(Math.random() * 1e9),
-      players: {}
-    });
+    // حالة بسيطة داخل السيرفر
+    this.players = {}; // id -> data
+    this.seed = Math.floor(Math.random() * 1e9);
 
+    // تحديث حركة لاعب
     this.onMessage("u", (client, d) => {
-      const p = this.state.players[client.sessionId];
+      const p = this.players[client.sessionId];
       if (!p) return;
-      Object.assign(p, d);
+
+      p.x = d.x; p.y = d.y; p.z = d.z;
+      p.ry = d.ry;
+      p.r = d.r || 0;
+      p.l = d.l || 0;
+      p.k = d.k || 0;
+
+      // بث للجميع (خفيف)
+      this.broadcast("p", { id: client.sessionId, ...p }, { except: client });
     });
   }
 
   onJoin(client) {
-    this.state.players[client.sessionId] = {
-      x:0,y:0,z:0, ry:0,
-      m:0,r:0,l:0,k:0
-    };
-    client.send("seed", { seed: this.state.seed });
+    this.players[client.sessionId] = { x:0, y:0, z:0, ry:0, r:0, l:0, k:0 };
+
+    // أرسل seed + حالتك + كل اللاعبين الموجودين
+    client.send("hello", {
+      you: client.sessionId,
+      seed: this.seed,
+      players: this.players
+    });
+
+    // بلغ الكل بلاعب جديد
+    this.broadcast("join", { id: client.sessionId }, { except: client });
   }
 
   onLeave(client) {
-    delete this.state.players[client.sessionId];
+    delete this.players[client.sessionId];
+    this.broadcast("leave", { id: client.sessionId });
   }
 }
 
 const app = express();
-app.get("/", (req, res) => res.send("OK"));
+
+// CORS مهم للمتصفح (خصوصًا على Render)
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
+app.get("/", (_, res) => res.send("OK"));
 
 const server = http.createServer(app);
 
@@ -43,7 +68,5 @@ const gameServer = new Server({
 });
 gameServer.define("forest", ForestRoom);
 
-// مهم جدًا لـ Render
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log("Server running on", PORT));
-
