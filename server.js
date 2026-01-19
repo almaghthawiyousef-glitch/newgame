@@ -7,38 +7,53 @@ const { Room } = require("colyseus");
 class ForestRoom extends Room {
   onCreate() {
     this.maxClients = 20;
-
-    // حالة بسيطة داخل السيرفر
     this.players = {}; // id -> data
     this.seed = Math.floor(Math.random() * 1e9);
 
-    // تحديث حركة لاعب
+    this.setSimulationInterval(1000 / 30); // ~30Hz تحديث داخلي (اختياري)
+
     this.onMessage("u", (client, d) => {
       const p = this.players[client.sessionId];
       if (!p) return;
 
-      p.x = d.x; p.y = d.y; p.z = d.z;
-      p.ry = d.ry;
-      p.r = d.r || 0;
-      p.l = d.l || 0;
-      p.k = d.k || 0;
+      p.x  = d.x  ?? p.x;
+      p.y  = d.y  ?? p.y;
+      p.z  = d.z  ?? p.z;
+      p.ry = d.ry ?? p.ry;
+      p.r  = d.r  ?? 0;
+      p.l  = d.l  ?? 0;
+      p.k  = d.k  ?? 0;
+      p.a  = d.a  || "idle";   // ← الأهم: حالة الأنيميشن
 
-      // بث للجميع (خفيف)
-      this.broadcast("p", { id: client.sessionId, ...p }, { except: client });
+      // بث للجميع ما عدا المرسل
+      this.broadcast("p", {
+        id: client.sessionId,
+        x: p.x, y: p.y, z: p.z,
+        ry: p.ry,
+        r: p.r,
+        l: p.l,
+        k: p.k,
+        a: p.a
+      }, { except: client });
     });
   }
 
   onJoin(client) {
-    this.players[client.sessionId] = { x:0, y:0, z:0, ry:0, r:0, l:0, k:0 };
+    this.players[client.sessionId] = {
+      x: 0, y: 0.9, z: -25,
+      ry: 0,
+      r: 0,
+      l: 0,
+      k: 0,
+      a: "idle"
+    };
 
-    // أرسل seed + حالتك + كل اللاعبين الموجودين
     client.send("hello", {
       you: client.sessionId,
       seed: this.seed,
       players: this.players
     });
 
-    // بلغ الكل بلاعب جديد
     this.broadcast("join", { id: client.sessionId }, { except: client });
   }
 
@@ -50,7 +65,7 @@ class ForestRoom extends Room {
 
 const app = express();
 
-// CORS مهم للمتصفح (خصوصًا على Render)
+// CORS
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
@@ -62,11 +77,11 @@ app.use((req, res, next) => {
 app.get("/", (_, res) => res.send("OK"));
 
 const server = http.createServer(app);
-
 const gameServer = new Server({
   transport: new WebSocketTransport({ server })
 });
+
 gameServer.define("forest", ForestRoom);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log("Server running on", PORT));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
