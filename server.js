@@ -9,9 +9,11 @@ class ForestRoom extends Room {
     this.maxClients = 20;
     this.players = {}; // id -> data
     this.seed = Math.floor(Math.random() * 1e9);
-
-    this.setSimulationInterval(1000 / 30); // ~30Hz تحديث داخلي (اختياري)
-
+this.setSimulationInterval((deltaTime) => {
+      // يمكنك تركها فارغة تمامًا
+      // أو تضيف في المستقبل حسابات server-side إذا احتجت
+    }, 1000 / 30);
+  }
     this.onMessage("u", (client, d) => {
       const p = this.players[client.sessionId];
       if (!p) return;
@@ -85,3 +87,4 @@ gameServer.define("forest", ForestRoom);
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
