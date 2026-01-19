@@ -9,23 +9,25 @@ class ForestRoom extends Room {
     this.maxClients = 20;
     this.players = {}; // id -> data
     this.seed = Math.floor(Math.random() * 1e9);
-this.setSimulationInterval((deltaTime) => {
-      // يمكنك تركها فارغة تمامًا
-      // أو تضيف في المستقبل حسابات server-side إذا احتجت
+
+    // الحل: مرر دالة فارغة لـ setSimulationInterval
+    this.setSimulationInterval((deltaTime) => {
+      // فارغة حالياً – يمكنك إضافة منطق server-side لاحقاً
     }, 1000 / 30);
-  }
+
+    // كل الـ onMessage يجب أن تكون داخل onCreate
     this.onMessage("u", (client, d) => {
       const p = this.players[client.sessionId];
       if (!p) return;
 
-      p.x  = d.x  ?? p.x;
-      p.y  = d.y  ?? p.y;
-      p.z  = d.z  ?? p.z;
+      p.x = d.x ?? p.x;
+      p.y = d.y ?? p.y;
+      p.z = d.z ?? p.z;
       p.ry = d.ry ?? p.ry;
-      p.r  = d.r  ?? 0;
-      p.l  = d.l  ?? 0;
-      p.k  = d.k  ?? 0;
-      p.a  = d.a  || "idle";   // ← الأهم: حالة الأنيميشن
+      p.r = d.r ?? 0;
+      p.l = d.l ?? 0;
+      p.k = d.k ?? 0;
+      p.a = d.a || "idle";
 
       // بث للجميع ما عدا المرسل
       this.broadcast("p", {
@@ -67,7 +69,7 @@ this.setSimulationInterval((deltaTime) => {
 
 const app = express();
 
-// CORS
+// CORS – مهم جدًا على Render
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
@@ -86,5 +88,6 @@ const gameServer = new Server({
 gameServer.define("forest", ForestRoom);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server is listening on http://0.0.0.0:${PORT}`);
+});
